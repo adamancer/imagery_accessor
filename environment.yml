@@ -1,0 +1,18 @@
+name: imagery_accessor
+channels:
+- conda-forge
+- default
+dependencies:
+- python>=3.7
+- earthpy
+- geopandas
+- matplotlib
+- numpy
+- pandas
+- rioxarray
+- shapely
+- xarray
+# Testing packages
+- coverage
+- pytest
+- pytest-mock

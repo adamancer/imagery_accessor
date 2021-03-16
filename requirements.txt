@@ -1,0 +1,12 @@
+earthpy
+geopandas
+matplotlib
+numpy
+pandas
+rioxarray
+shapely
+xarray
+
+coverage
+pytest
+pytest-mock
