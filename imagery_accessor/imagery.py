@@ -953,12 +953,14 @@ class ImageryAccessor(BaseAccessor):
         """
         # Read band from file if passed as a string
         if isinstance(band, str):
-            band = open_clip_sqeeze(band)
+            band = open_clip_squeeze(band)
 
         # Remove pixels outside valid range if provided
         if valid_range:
             mask = ((band < min(valid_range)) | (band > max(valid_range)))
             band = band.where(~xr.where(mask, True, False))
+
+
 
         return band
 
@@ -1200,7 +1202,7 @@ def stack_imagery(path, clip_bound=None, min_band=1, max_band=7, **kwargs):
     """
 
     # Define filename pattern to match both Landsat and MODIS
-    pattern = f"*b[a0]*[{min_band}-{max_band}]*.tif"
+    pattern = f"*b*[{min_band}-{max_band}].tif"
 
     # Read TIFFs along path matching selected bands
     paths = []
