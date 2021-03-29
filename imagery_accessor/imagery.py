@@ -574,8 +574,21 @@ class ImageryAccessor(BaseAccessor):
         return self.mask_from_pixel_qa(flags)
 
 
-    def evi(self):
+    def evi(self, g=2.5, c1=6, c2=7.5, l=1):
         """Calculates Enhanced Vegetation Index (EVI)
+
+        Formula: G * ((NIR - R) / (NIR + C1 * R – C2 * B + L))
+
+        Parameters
+        ----------
+        g: float
+            gain factor
+        c1: float
+            coefficient for atmospheric resistance for red band
+        c2: float
+            coefficient for atmospheric resistance for blue band
+        l: float
+            adjustment for canopy background
 
         Returns
         -------
@@ -590,13 +603,39 @@ class ImageryAccessor(BaseAccessor):
         except ValueError:
             nir = self.nir
 
-        xobj = 2.5 * (nir - self.red) / (nir + 6 * self.red - 7.5 * self.blue + 1)
+        xobj = g * (nir - self.red) / (nir + c1 * self.red - c2 * self.blue + l)
         xobj = add_dim(xobj, dim="band", coords={"name": ["EVI"]})
         return xobj
 
 
+    def msavi(self):
+        """Calculates Modified Soil Adjusted Vegetation Index (MSAVI)
+
+        Formula: (2 * NIR + 1 – sqrt((2 * NIR + 1)² – 8 * (NIR - R))) / 2
+
+        Returns
+        -------
+        xarray.DataArray
+            Array containing MSAVI values
+        """
+
+        # Some instruments have multiple infrared bands, so try to select
+        # by wavelength before falling back to the named NIR band
+        try:
+            nir = self.get_band_by_wavelength(865)
+        except ValueError:
+            nir = self.nir
+
+        xobj = (2 * nir + 1 - ((2 * nir + 1)**2 - 8 * (nir - self.red))**0.5) / 2
+        xobj = add_dim(xobj, dim="band", coords={"name": ["MSAVI"]})
+        return xobj
+
+
+
     def nbr(self):
         """Calculates Normalized Burn Ratio (NBR)
+
+        Formula: (NIR - SWIR2) / (NIR + SWIR2)
 
         Returns
         -------
@@ -623,6 +662,8 @@ class ImageryAccessor(BaseAccessor):
     def nbr2(self):
         """Calculates Normalized Burn Ratio 2 (NBR2)
 
+        (SWIR1 – SWIR2) / (SWIR1 + SWIR2)
+
         Returns
         -------
         xarray.DataArray
@@ -637,8 +678,37 @@ class ImageryAccessor(BaseAccessor):
         return xobj
 
 
+    def ndmi(self):
+        """Calculates Normalized Difference Moisture Index (NDMI)
+
+        Formula: (NIR - SWIR1) / (NIR + SWIR1)
+
+        Returns
+        -------
+        xarray.DataArray
+            Array containing NDMI values
+        """
+
+        # Some instruments have multiple infrared bands, so try to select
+        # by wavelength before falling back to the named NIR band
+        try:
+            nir = self.get_band_by_wavelength(865)
+        except ValueError:
+            nir = self.nir
+
+        # Likewise, some instruments have multiple SWIR bands. Use the one
+        # around 2125 nm.
+        swir = self.get_band_by_wavelength(1610)
+
+        xobj = (nir - swir) / (nir + swir)
+        xobj = add_dim(xobj, dim="band", coords={"name": ["NDMI"]})
+        return xobj
+
+
     def ndvi(self):
         """Calculates Normalized Difference Vegetation Index (NDVI)
+
+        Formula: (NIR - R) / (NIR + R)
 
         Returns
         -------
@@ -655,6 +725,34 @@ class ImageryAccessor(BaseAccessor):
 
         xobj = (nir - self.red) / (nir + self.red)
         xobj = add_dim(xobj, dim="band", coords={"name": ["NDVI"]})
+        return xobj
+
+
+    def savi(self, l=0.5):
+        """Calculates Soil Adjusted Vegetation Index (SAVI)
+
+        Formula: ((NIR - R) / (NIR + R + L)) * (1 + L)
+
+        Parameters
+        ----------
+        l: float
+            soil brightness correction factor
+
+        Returns
+        -------
+        xarray.DataArray
+            Array containing SAVI values
+        """
+
+        # Some instruments have multiple infrared bands, so try to select
+        # by wavelength before falling back to the named NIR band
+        try:
+            nir = self.get_band_by_wavelength(865)
+        except ValueError:
+            nir = self.nir
+
+        xobj = ((nir - self.red) / (nir + self.red + l)) * (1 + l)
+        xobj = add_dim(xobj, dim="band", coords={"name": ["SAVI"]})
         return xobj
 
 
@@ -1125,8 +1223,8 @@ def stack_imagery(path, clip_bound=None, min_band=1, max_band=7, **kwargs):
 
     # Get names for each band
     # TODO: Use instruments to get names (but need satellite for that)
-    if "band" in paths[0]:
-        names = ["aerosols", "blue", "green", "red", "nir", "swir_1", "swir_2"]
+    if os.path.basename(paths[0]).startswith("L"):
+        names = ["aerosols", "blue", "green", "red", "nir", "swir1", "swir2"]
     else:
         names = ["red", "blue_green", "nir_2",
                  "green", "nir_5", "mir_6", "mir_7"]
