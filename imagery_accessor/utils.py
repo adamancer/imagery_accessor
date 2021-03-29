@@ -1,7 +1,4 @@
-"""Defines decorators and plotting functions for xarrays
-
-TODO: Add docstrings and params to utility functions
-"""
+"""Defines decorators and plotting functions for xarrays"""
 
 from functools import wraps
 
@@ -216,8 +213,40 @@ def copy_dataset_metadata(xdat, other):
     return copy_array_metadata(xarr, other).to_dataset(dim="band")
 
 
+def iterarrays(xobj):
+    """Iterates through an xarray object
+
+    Parameters
+    ---------
+    xarr: xarray.DataArray or xarray.Dataset
+        the object to iterate
+
+    Returns
+    -------
+    iterable
+        list or similar of the children of the given object
+    """
+    if isinstance(xobj, xr.DataArray):
+        return xobj if len(xobj.shape) > 2 else [xobj]
+    return xobj.values()
+
+
 def to_numpy_array(obj, dim="band"):
-    """Converts an object to a numpy array"""
+    """Converts an object to a numpy array
+
+    Parameters
+    ----------
+    obj: array-like
+        a numpy array, xarray object or any other object that can converted
+        to a numpy array using numpy.array()
+    dim: str
+        the name of dimension of the new array when converting a dataset
+
+    Returns
+    -------
+    numpy.array
+        an array based on the given object
+    """
     if isinstance(obj, xr.Dataset):
         xobj = xobj.to_array(dim=dim)
     if isinstance(obj, xr.DataArray):
@@ -228,12 +257,19 @@ def to_numpy_array(obj, dim="band"):
 
 
 def plotting_extent(xobj):
-    """Calculates plotting extent for an xarray object for matplotlib"""
-    if isinstance(xobj, xr.DataArray):
-        xarrs = xobj if len(xobj.shape) > 2 else [xobj]
-    else:
-        xarrs = xobj.values()
-    for xarr in xarrs:
+    """Calculates plotting extent for an xarray object for matplotlib
+
+    Parameters
+    ----------
+    xobj: xarray.DataArray or xarray.Dataset
+        the xarray object to scale
+
+    Returns
+    -------
+    tuple of float
+        left, right, bottom, top
+    """
+    for xarr in iterarrays(xobj):
         return rasterio_plotting_extent(xarr, xarr.rio.transform())
 
 
