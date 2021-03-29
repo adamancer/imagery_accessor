@@ -7,6 +7,8 @@ from functools import wraps
 
 import numpy as np
 import earthpy.plot as ep
+import rasterio
+from rasterio.enums import Resampling
 from rasterio.plot import plotting_extent as rasterio_plotting_extent
 import xarray as xr
 
@@ -233,3 +235,144 @@ def plotting_extent(xobj):
         xarrs = xobj.values()
     for xarr in xarrs:
         return rasterio_plotting_extent(xarr, xarr.rio.transform())
+
+
+def scale(xobj, *scaling):
+    """Scales an xarray object created using rioxarray
+
+    Parameters
+    ----------
+    xobj: xarray.DataArray or xarray.Dataset
+        the xarray object to scale
+    scaling: float or list of floats
+        scaling factors. If two are provided, the order is width, height.
+        Values less than one downsample (shrink) the object, values greater
+        than one upsample (stretch) the object.
+
+    Returns
+    -------
+    xarray.DataArray or xarray.Dataset
+        the scaled xarray object
+    """
+    width = xobj.sizes["x"]
+    height = xobj.sizes["y"]
+
+    if len(scaling) == 1:
+        scaling = (scaling[0], scaling[0])
+    if len(scaling) != 2:
+        raise ValueError("Must provide 1-2 values for scaling")
+
+    width = int(width * scaling[0])
+    height = int(height * scaling[1])
+
+    return xobj.rio.reproject(xobj.rio.crs, shape=(width, height))
+
+
+def rotation(xobj, angle, pivot=None):
+    """Rotates an xarray object created using rioxarray around a pivot
+
+    Parameters
+    ----------
+    angle: float
+        angle in degrees to rotate the object
+    pivot: tuple
+        coordinates around which to pivot. Use array coordinates, not
+        the CRS coordinates. If not given, pivots around the center.
+
+    Returns
+    -------
+    xarray.DataArray or xarray.Dataset
+        the rotated xarray object
+    """
+
+    width = xobj.sizes["x"]
+    height = xobj.sizes["y"]
+
+    # If pivot isn't given, rotate around center
+    if pivot is None:
+        pivot = [d // 2 for d in (width, height)]
+
+    # Use the maximum dimension of the current object to calculate a shape
+    # that will accomodate any rotation. If the orientation of the data is
+    # not the same as the array (for example, if the array has already been
+    # rotated), this will overestimate the size of the canvas required. Rows
+    # and columns consisting of all NaNs are trimmed later to account for this.
+    diag = int((width ** 2 + height ** 2) ** 0.5)
+
+    # Rotate object based on the existing transform, then translate the
+    # rotated object to the center of the new, larger canvas
+    transform = xobj.rio.transform()
+    transform *= transform.rotation(angle, pivot)
+    transform *= transform.translation((width - diag) // 2,
+                                       (height - diag) // 2)
+
+    # Rotate the object according to the transform
+    rotated = xobj.rio.reproject(
+        xobj.rio.crs, shape=(diag, diag), transform=transform
+    )
+
+    # Trim all-Nan rows and columns before returning
+    return rotated.dropna("x", "all").dropna("y", "all")
+
+
+def scale_file(path, scaled, *scaling):
+    """Resamples and saves a raster
+
+    Convenience function based on
+    https://rasterio.readthedocs.io/en/latest/topics/resampling.html?highlight=resampling#up-and-downsampling.
+    Resizing large rasters after loading is memory intensive and resizing
+    while reading is often preferable.
+
+    Parameters
+    ----------
+    path: str
+        path to the original file
+    scaled: str
+        path to save the scaled file
+    scaling: float
+        scaling factors. If two values are provided, the order is width,
+        height. Values less than one downsample (shrink) the object, values
+        greater than one upsample (stretch) the object.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        if 1-2 scaling factors are not provided
+    """
+
+    if len(scaling) == 1:
+        scaling = (scaling[0], scaling[0])
+    if len(scaling) != 2:
+        raise ValueError("Must provide either 1 or 2 values for scaling")
+
+    with rasterio.open(path) as src:
+
+        # Resample the data as it is read in
+        imgdata = src.read(
+            out_shape=(src.count,
+                       int(src.height * scaling[1]),
+                       int(src.width * scaling[0])),
+            resampling=Resampling.bilinear)
+
+        # Record the transform
+        transform = src.transform * src.transform.scale(
+            (src.width / imgdata.shape[-1]),
+            (src.height / imgdata.shape[-2])
+        )
+
+        # Save the scaled image
+        with rasterio.Env():
+            profile = src.profile
+
+            profile.update(
+                width=imgdata.shape[-2],
+                height=imgdata.shape[-1],
+                transform=transform
+            )
+
+            with rasterio.open(scaled, "w", **profile) as dst:
+                dst.write(imgdata)

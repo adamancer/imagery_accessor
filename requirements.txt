@@ -3,6 +3,7 @@ geopandas
 matplotlib
 numpy
 pandas
+rasterio
 rioxarray
 shapely
 xarray
