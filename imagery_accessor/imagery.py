@@ -5,6 +5,7 @@ TODO: Identify metadata available through the rio accessor (like resolution)
 from datetime import datetime
 from glob import glob
 import os
+import re
 
 import earthpy.spatial as es
 import numpy as np
@@ -1201,13 +1202,25 @@ def stack_imagery(path, clip_bound=None, min_band=1, max_band=7, **kwargs):
         If wrong number of bands found
     """
 
-    # Define filename pattern to match both Landsat and MODIS
-    pattern = f"*b*[{min_band}-{max_band}].tif"
+    # Find images along path matching selected bands
+    images = glob(os.path.join(path, "*.tif"))
 
-    # Read TIFFs along path matching selected bands
-    paths = []
-    for fp in glob(os.path.join(path, pattern)):
-        paths.append(fp)
+    # Get distinct part of each path by stripping common prefix and suffix
+    prefix = os.path.commonprefix(images)
+
+    suffix = []
+    for i in range(1, min([len(p) for p in images])):
+        # Break when last character is no longer the same across all paths
+        if len({p[-i] for p in images}) != 1:
+            break
+        suffix.append(images[0][-i])
+    suffix = "".join(suffix[::-1])
+
+    images = {p[:-len(suffix)][len(prefix):]: p for p in images}
+
+    # Get TIFFs where distinct matches the selected bands
+    pattern = r"(?<!\d)[" + f"{min_band}-{max_band}" + r"](?!\d)"
+    paths = [p for k, p in images.items() if re.search(pattern, k)]
 
     # Raise an error if any of the expected bands are missing
     expected = (max_band - min_band + 1)
