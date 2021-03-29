@@ -56,7 +56,7 @@ def plot_xarray(func):
 @plot_xarray
 def hist(*args, **kwargs):
     """Plots histogram based on an xarray object"""
-    return ep.plot_hist(*args, **kwargs)
+    return ep.hist(*args, **kwargs)
 
 
 @plot_xarray
