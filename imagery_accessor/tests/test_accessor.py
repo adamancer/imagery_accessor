@@ -161,9 +161,9 @@ def test_metadata_to_1d_arr(rgb_image, request):
     rgb_image = request.getfixturevalue(rgb_image)
     rgb_1d = rgb_image.sum(axis=0)
 
-    # Metadata should be the same
+    # Non-index metadata should be the same
     assert rgb_image.im.metadata
-    assert rgb_image.im.metadata == rgb_1d.im.metadata
+    assert rgb_image.im.metadata["hello"] == rgb_1d.im.metadata["hello"]
 
     # Non-dimensional, non-scalar coords should transfer
     ignore_coords = list(rgb_image.dims)
