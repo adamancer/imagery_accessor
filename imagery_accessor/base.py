@@ -74,12 +74,12 @@ class BaseAccessor:
 
     @property
     def name(self):
-        return self.metadata["accessor_name"]
+        return self.metadata["ACC_NAME"]
 
 
     @name.setter
     def name(self, val):
-        self._obj.coords["metadata_ref"].attrs["accessor_name"] = val
+        self._obj.coords["metadata_ref"].attrs["ACC_NAME"] = val
 
 
     def concat(self, xarrs, **kwargs):

@@ -69,12 +69,19 @@ class ImageryAccessor(BaseAccessor):
         # example of where it fails.
         #
         # TODO: Check if this is reimplementing built-in xarray functionality
+        # TODO: Investigate reintegrating coords/dims from metadata
         self._coord_to_dim = {}
         self._dim_to_coord = {}
         try:
             bands = self.band_ids()
         except (KeyError, TypeError):
-            pass
+            # Pull values from metadata if possible
+            try:
+                indexes = self.metadata["ACC_INDEXES"]
+                self._coord_to_dim = indexes["coord_to_dim"]
+                self._dim_to_coord = indexes["dim_to_coord"]
+            except KeyError:
+                pass
         else:
             for key, val in xobj.coords.items():
                 try:
@@ -84,6 +91,12 @@ class ImageryAccessor(BaseAccessor):
                         self._dim_to_coord[key] = dict(zip(bands, vals))
                 except TypeError:
                     pass
+            # FIXME: Recursion error in metadata if ACC_INDEXES propagates
+            self.metadata["ACC_INDEXES"] = {
+                "coord_to_dim": self._coord_to_dim,
+                "dim_to_coord": self._dim_to_coord
+            }
+
 
 
     @property

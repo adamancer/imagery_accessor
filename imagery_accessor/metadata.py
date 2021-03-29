@@ -41,12 +41,16 @@ class MetadataRef:
 
     def __setitem__(self, key, val):
         self._dict[key] = val
-        self.propagate()
+        # ACC_INDEXES is specific to the top-level array
+        if key != "ACC_INDEXES":
+            self.propagate()
 
 
     def __delitem__(self, key):
         del self._dict[key]
-        self.propagate()
+        # ACC_INDEXES is specific to the top-level array
+        if key != "ACC_INDEXES":
+            self.propagate()
 
 
     def setdefault(self, key, val):
@@ -72,7 +76,7 @@ class MetadataRef:
         """
         # TODO: Verify that this is working as expected and is not overkill
         try:
-            children = list(getattr(self._obj, self._dict["accessor_name"]))
+            children = list(getattr(self._obj, self._dict["ACC_NAME"]))
         except TypeError:
             pass
         else:
